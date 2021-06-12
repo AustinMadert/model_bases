@@ -1,3 +1,4 @@
+from typing import Tuple
 import copy
 import numpy as np
 import pickle
@@ -34,7 +35,7 @@ class TorchModelBase:
                  tol: float = 1e-5,
                  device: str = None,
                  display_progress: bool = True,
-                 **optimizer_kwargs):
+                 **optimizer_kwargs) -> None:
         """Base class for all the PyTorch-based models.
 
         Args:
@@ -208,7 +209,7 @@ class TorchModelBase:
         raise NotImplementedError
 
 
-    def build_optimizer(self):
+    def build_optimizer(self) -> torch.optimizer.Optimizer:
         """Builds the optimizer. This method is called only when `fit` is called.
 
         Returns:
@@ -221,7 +222,7 @@ class TorchModelBase:
             **self.optimizer_kwargs)
 
 
-    def fit(self, *args):
+    def fit(self, *args) -> 'TorchModelBase':
         """
         Generic optimization method.
 
@@ -385,27 +386,25 @@ class TorchModelBase:
 
         return self
 
+
     @staticmethod
-    def _build_validation_split(*args, validation_fraction=0.2):
-        """
-        Split `*args` into train and dev portions for early stopping.
-        We use `train_test_split`. For args of length N, then delivers
-        N*2 objects, arranged as
+    def _build_validation_split(*args, validation_fraction: float = 0.2) -> tuple:
+        """Splits `*args` into train and dev portions for early stopping.
+        sklearn `train_test_split` is used. For args of length N, returns
+        N * 2 objects, arranged as:
 
-        X1_train, X1_test, X2_train, X2_test, ..., y_train, y_test
+        `X1_train, X1_test, X2_train, X2_test, ..., y_train, y_test`
 
-        Parameters
-        ----------
-        *args: List of objects to split.
+        Args:
+            *args: List of objects to split.
 
-        validation_fraction: float
-            Percentage of the examples to use for the dev portion. In
-            `fit`, this is determined by `self.validation_fraction`.
-            We give it as an argument here to facilitate unit testing.
+            validation_fraction: Percentage of the examples to use for the dev 
+                portion. In `fit`, this is determined by 
+                `self.validation_fraction`. We give it as an argument here to 
+                facilitate unit testing.
 
-        Returns
-        -------
-        Pair of tuples `train` and `dev`
+        Returns:
+            tuple of `train` and `dev`
 
         """
         if validation_fraction == 1.0:
@@ -415,36 +414,30 @@ class TorchModelBase:
         dev = results[1::2]
         return train, dev
 
-    def _build_dataloader(self, dataset, shuffle=True):
+    def _build_dataloader(self, dataset: torch.utils.data.Dataset, 
+                          shuffle: bool = True) -> torch.utils.data.DataLoader:
+        """Method used to create a dataloader from a pytorch dataset. Used in 
+        `fit` and `_predict`.
+
+        Args:
+            dataset: The pytorch dataset object.
+
+            shuffle: For training, set to `True`. For prediction, this is
+                crucially set to `False` so that the examples are not
+                shuffled out of order with respect to labels that might
+                be used for assessment.
+
+        Returns:
+            torch.utils.data.DataLoader
         """
-        Internal method used to create a dataloader from a dataset.
-        This is used by `fit` and `_predict`.
-
-        Parameters
-        ----------
-        dataset: torch.utils.data.Dataset
-
-        shuffle: bool
-            When training, this is `True`. For prediction, this is
-            crucially set to `False` so that the examples are not
-            shuffled out of order with respect to labels that might
-            be used for assessment.
-
-        Returns
-        -------
-        torch.utils.data.DataLoader
-
-        """
-        if hasattr(dataset, "collate_fn"):
-            collate_fn = dataset.collate_fn
-        else:
-            collate_fn = None
+        collate_fn = dataset.collate_fn if hasattr(dataset, "collate_fn") else None
         dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=self.batch_size,
             shuffle=shuffle,
             pin_memory=True,
-            collate_fn=collate_fn)
+            collate_fn=collate_fn
+        )
         return dataloader
 
     def _update_no_improvement_count_early_stopping(self, *dev):
@@ -619,7 +612,8 @@ class TorchModelBase:
         with open(src_filename, 'rb') as f:
             return pickle.load(f)
 
+    
     def __repr__(self):
-        param_str = ["{}={}".format(a, getattr(self, a)) for a in self.params]
-        param_str = ",\n\t".join(param_str)
-        return "{}(\n\t{})".format(self.__class__.__name__, param_str)
+        param_lst = [f"{a}={getattr(self, a)}" for a in self.params]
+        param_str = ",\n\t".join(param_lst)
+        return f"{self.__class__.__name__}(\n\t{param_str})"
