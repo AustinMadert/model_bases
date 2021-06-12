@@ -4,10 +4,6 @@ import pickle
 from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
-import utils
-
-__author__ = "Christopher Potts"
-__version__ = "CS224u, Stanford, Spring 2021"
 
 
 class TorchModelBase:
