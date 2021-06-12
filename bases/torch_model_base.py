@@ -1,10 +1,10 @@
-from typing import Tuple
 import copy
 import numpy as np
 import pickle
 from sklearn.model_selection import train_test_split
 import torch
-import torch.nn as nn
+
+from .mlogging import mlog
 
 def test(param, model):
     """[summary]
@@ -322,9 +322,11 @@ class TorchModelBase:
         self.model.train()
         self.optimizer.zero_grad()
 
-        for iteration in range(1, self.max_iter+1):
+        for epoch in range(1, self.max_iter+1):
+            mlog.epoch.update(epoch)
 
-            epoch_error = 0.0
+            for metric in mlog.train.metrics():
+                metric.reset()
 
             for batch_num, batch in enumerate(dataloader, start=1):
 
@@ -343,7 +345,7 @@ class TorchModelBase:
 
                 err.backward()
 
-                epoch_error += err.item()
+                mlog.train.error.update(err.item(), weighting=self.batch_size)
 
                 if batch_num % self.gradient_accumulation_steps == 0 or \
                   batch_num == len(dataloader):
@@ -358,6 +360,8 @@ class TorchModelBase:
             if self.early_stopping:
                 self._update_no_improvement_count_early_stopping(*dev)
                 if self.no_improvement_count > self.n_iter_no_change:
+                    for metric in mlog.train.metrics():
+                        metric.log()
                     # utils.progress_bar(
                     #     "Stopping after epoch {}. Validation score did "
                     #     "not improve by tol={} for more than {} epochs. "
@@ -367,8 +371,9 @@ class TorchModelBase:
                     break
 
             else:
-                self._update_no_improvement_count_errors(epoch_error)
+                self._update_no_improvement_count_errors(mlog.train.error)
                 if self.no_improvement_count > self.n_iter_no_change:
+                    
                     # utils.progress_bar(
                     #     "Stopping after epoch {}. Training loss did "
                     #     "not improve more than tol={}. Final error "
