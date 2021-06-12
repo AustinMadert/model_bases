@@ -5,129 +5,121 @@ from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
 
+def test(param, model):
+    """[summary]
+
+    Args:
+        param ([type]): [description]
+        model ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    return param, model
+
 
 class TorchModelBase:
     def __init__(self,
-            batch_size=1028,
-            max_iter=1000,
-            eta=0.001,
-            optimizer_class=torch.optim.Adam,
-            l2_strength=0,
-            gradient_accumulation_steps=1,
-            max_grad_norm=None,
-            warm_start=False,
-            early_stopping=False,
-            validation_fraction=0.1,
-            n_iter_no_change=10,
-            tol=1e-5,
-            device=None,
-            display_progress=True,
-            **optimizer_kwargs):
-        """
-        Base class for all the PyTorch-based models.
+                 batch_size: int = 1028,
+                 max_iter: int = 1000,
+                 learning_rate: float = 0.001,
+                 optimizer_class: torch.optim = torch.optim.Adam,
+                 l2_strength: float = 0.,
+                 gradient_accumulation_steps: int = 1,
+                 max_grad_norm: float = None,
+                 warm_start: bool = False,
+                 early_stopping: bool = False,
+                 validation_fraction: float = 0.1,
+                 n_iter_no_change: int = 10,
+                 tol: float = 1e-5,
+                 device: str = None,
+                 display_progress: bool = True,
+                 **optimizer_kwargs):
+        """Base class for all the PyTorch-based models.
 
-        Parameters
-        ----------
-        batch_size: int
-            Number of examples per batch. Batching is handled by a
-            `torch.utils.data.DataLoader`. Final batches can have fewer
-            examples, depending on the total number of examples in the
-            dataset.
+        Args:
+            batch_size: Number of examples per batch. Batching is handled by a
+                `torch.utils.data.DataLoader`. Final batches can have fewer
+                examples, depending on the total number of examples in the
+                dataset.
 
-        max_iter: int
-            Maximum number of training iterations. This will interact
-            with `early_stopping`, `n_iter_no_change`, and `tol` in the
-            sense that this limit will be reached if and only if and
-            conditions triggered by those other parameters are not met.
+            max_iter: The maximum number of training iterations. If the 
+                conditions involved with `early_stopping`, `n_iter_no_change`, 
+                and `tol` are met then the run will not reach the max_iter.
 
-        eta : float
-            Learning rate for the optimizer.
+            learning_rate : Learning rate for the optimizer.
 
-        optimizer_class: `torch.optimizer.Optimizer`
-            Any PyTorch optimizer should work. Additional arguments
-            can be passed to this object via `**optimizer_kwargs`. The
-            optimizer itself is built by `self.build_optimizer` when
-            `fit` is called.
+            optimizer_class: Intended for Pytorch optimizers. Additional 
+                arguments can be passed to this object via `**optimizer_kwargs`. 
+                The optimizer is initiallized in `self.build_optimizer` when
+                `fit` is called.
 
-        l2_strength: float
-            L2 regularization parameters for the optimizer. The default
-            of 0 means no regularization, and larger values correspond
-            to stronger regularization.
+            l2_strength: L2 regularization parameters for the optimizer. The 
+                default of 0 means no regularization, and larger values 
+                correspond to stronger regularization.
 
-        gradient_accumulation_steps: int
-            Controls how often the model parameters are updated during
-            learning. For example, with `gradient_accumulation_steps=2`,
-            the parameters are updated after every other batch. The primary
-            use case for `gradient_accumulation_steps > 1` is where the
-            model is very large, so only small batches of examples can be
-            fit into memory. The updates based on these small batches can
-            have high variance, so accumulating a few batches before
-            updating can smooth the process out.
+            gradient_accumulation_steps: Controls how often the model parameters 
+                are updated during learning. For example, with 
+                `gradient_accumulation_steps=2`, the parameters are updated 
+                after every other batch. The primary use case for 
+                `gradient_accumulation_steps > 1` is where the model is very 
+                large, so only small batches of examples can be fit into memory. 
+                The updates based on these small batches can have high variance, 
+                so accumulating a few batches before updating can smooth the 
+                process out.
 
-        max_grad_norm: None or float
-            If not `None`, then `torch.nn.utils.clip_grad_norm_` is used
-            to clip all the model parameters to within the range set
-            by this value. This is a kind of brute-force way of keeping
-            the parameter values from growing absurdly large or small.
+            max_grad_norm: If not `None`, then `torch.nn.utils.clip_grad_norm_` 
+                is used to clip all the model parameters to within the range set
+                by this value.
 
-        warm_start: bool
-            If `False`, then repeated calls to `fit` will reset all the
-            optimization settings: the model parameters, the optimizer,
-            and the metadata we collect during optimization. If `True`,
-            then calling `fit` twice with `max_iter=N` should be the same
-            as calling fit once with `max_iter=N*2`.
+            warm_start: bool
+                If `False`, then repeated calls to `fit` will reset all the
+                optimization settings: the model parameters, the optimizer,
+                and the metadata we collect during optimization. If `True`,
+                then calling `fit` twice with `max_iter=N` should be the same
+                as calling fit once with `max_iter=N*2`.
 
-        early_stopping: bool
-            If `True`, then `validation_fraction` of the data given to
-            `fit` are held out and used to assess the model after every
-            epoch. The best scoring model is stored in an attribute
-            `best_parameters`. If an improvement of at least `self.tol`
-            isn't seen after `n_iter_no_change` iterations, then training
-            stops and `self.model` is set to use `best_parameters`.
+            early_stopping: If `True`, then `validation_fraction` of the data given to
+                `fit` are held out and used to assess the model after every
+                epoch. The best scoring model is stored in an attribute
+                `best_parameters`. If an improvement of at least `self.tol`
+                isn't seen after `n_iter_no_change` iterations, then training
+                stops and `self.model` is set to use `best_parameters`.
 
-        validation_fraction: float
-            Percentage of the data given to `fit` to hold out for use in
-            early stopping. Ignored if `early_stopping=False`
+            validation_fraction: Percentage of the data given to `fit` to hold 
+                out for use in early stopping. Ignored if `early_stopping=False`
 
-        n_iter_no_change: int
-            Number of epochs used to control convergence and early
-            stopping. Where `early_stopping=True`, training stops if an
-            improvement of more than `self.tol` isn't seen after this
-            many epochs. If `early_stopping=False`, then training stops
-            if the epoch error doesn't drop by at least `self.tol` after
-            this many epochs.
+            n_iter_no_change: Number of epochs used to control convergence and 
+                early stopping. Where `early_stopping=True`, training stops if 
+                an improvement of more than `self.tol` isn't seen after this
+                many epochs. If `early_stopping=False`, then training stops
+                if the epoch error doesn't drop by at least `self.tol` after
+                this many epochs.
 
-        tol: float
-            Value used to control `early_stopping` and convergence.
+            tol: Value used to control `early_stopping` and convergence.
 
-        device: str or None
-            Used to set the device on which the PyTorch computations will
-            be done. If `device=None`, this will choose a CUDA device if
-            one is available, else the CPU is used.
+            device: Used to set the device on which the PyTorch computations 
+                will be done. If `device=None`, this will choose a CUDA device 
+                if one is available, else the CPU is used.
 
-        display_progress: bool
-            Whether to print optimization information incrementally to
-            `sys.stderr` during training.
+            display_progress: bool
+                Whether to print optimization information incrementally to
+                `sys.stderr` during training.
 
-        **optimizer_kwargs: kwargs
-            Any additional keywords given to the model will be passed to
-            the optimizer -- see `self.build_optimizer`. The intent is to
-            make it easy to tune these as hyperparameters will still
-            allowing the user to specify just `optimizer_class` rather
-            than setting up a full optimizer.
+            **optimizer_kwargs: Used in `self.build_optimizer` to initialize
+                `self.optimizer`. Collects optimizer parameters on 
+                initialization to allow for tuning during hyperparameter search 
+                functions offerect in `sklearn.model_selection`.
 
-        Attributes
-        ----------
-        params: list
-             All the keyword arguments are parameters and, with the
-             exception of `display_progress`, their names are added to
-             this list to support working with them using tools from
-             `sklearn.model_selection`.
-
+        Attributes:
+            params (list): All the keyword arguments are parameters and, with 
+                the exception of `display_progress`, their names are added to
+                this list to support working with them using tools from
+                `sklearn.model_selection`.
         """
         self.batch_size = batch_size
         self.max_iter = max_iter
-        self.eta = eta
+        self.learning_rate = learning_rate
         self.optimizer_class = optimizer_class
         self.l2_strength = l2_strength
         self.gradient_accumulation_steps = max([gradient_accumulation_steps, 1])
@@ -159,88 +151,75 @@ class TorchModelBase:
             'tol']
         self.params += list(optimizer_kwargs.keys())
 
+
     def build_dataset(self, *args, **kwargs):
-        """
-        Subclasses are required to define this method. Perhaps the most
-        important design note is that the function should be prepared to
-        return datasets that are appropriate for both training and
-        prediction. For training, we expect `*args` to have labels in
-        final position. For prediction, we expect all of `*args` to be
-        model inputs. For example, in a simple classifier, we expect
-        `*args` to be a pair `(X, y)` for training and so this method
-        should return something like:
+        """Builds both training and prediction dataset objects. For training, 
+        `*args` is expected to have labels in final position. For prediction, 
+        `*args` is expected to be model inputs. For example, in a simple 
+        classifier, `*args` could be a pair `(X, y)` for training, and so this 
+        method should return something like:
 
         `torch.utils.data.TensorDataset(X, y)`
 
-        For prediction, we get only `X`, so we should return
+        For prediction, `*args` would only be `X`, so we should return
 
         `torch.utils.data.TensorDataset(X)`
 
-        Parameters
-        ----------
-        *args: any arguments to be used to create the dataset
+        Args:
+            *args: any arguments to be used to create the dataset
 
-        **kwargs: any desired keyword arguments
+            **kwargs: any desired keyword arguments
 
-        Returns
-        -------
-        `torch.utils.data.Dataset` or a custom subclass thereof
-
+        Returns:
+            `torch.utils.data.Dataset` or a custom subclass thereof
         """
         raise NotImplementedError
+
 
     def build_graph(self, *args, **kwargs):
-        """
-        Build the core computational graph. This is called only after
-        `fit` is called. The return value of this function becomes the
-        the `self.model` attribute.
+        """Builds the core computational graph. This is called within the `fit` 
+        method. The return value of this method becomes the the `self.model` 
+        attribute.
 
-        Parameters
-        ----------
-        *args: any arguments to be used to create the dataset
+        Args:
+            *args: any arguments to be used to create the dataset
 
-        **kwargs: any desired keyword arguments
+            **kwargs: any desired keyword arguments
 
-        Returns
-        -------
-        nn.Module or subclass thereof
-
+        Returns:
+            nn.Module
         """
         raise NotImplementedError
+
 
     def score(self, *args):
-        """
-        Required by the `sklearn.model_selection` tools. This function
-        needs to take the same arguments as `fit`. For `*args` is usually
-        an `(X, y)` pair of features and labels, and `self.predict(X)`
-        is called and then some kind of scoring function is used to
-        compare those predictions with `y`. The return value should be
-        some kind of appropriate score for the model in question.
+        """Required by the `sklearn.model_selection` tools. This method needs to 
+        take the same arguments as `fit`. For `*args` is usually an `(X, y)` 
+        pair of features and labels, and `self.predict(X)` is called and then 
+        some kind of scoring function is used to compare those predictions with 
+        `y`. The return value should be some kind of appropriate score for the 
+        model in question.
 
-        Notes
-        -----
-        For early stopping, we use this function to get scores and
-        assume that larger scores are better. This would conflict with
-        using, say, a mean-squared-error scoring function.
-
+        Notes:
+            For early stopping, we use this method to get scores and assume that 
+            larger scores are better. This would conflict with using, say, a 
+            mean-squared-error scoring function.
         """
         raise NotImplementedError
 
+
     def build_optimizer(self):
-        """
-        Builds the optimizer. This function is called only when `fit`
-        is called.
+        """Builds the optimizer. This method is called only when `fit` is called.
 
-        Returns
-        -------
-        torch.optimizer.Optimizer
-
+        Returns:
+            torch.optimizer.Optimizer
         """
         return self.optimizer_class(
             self.model.parameters(),
-            lr=self.eta,
+            lr=self.learning_rate,
             weight_decay=self.l2_strength,
             **self.optimizer_kwargs)
+
 
     def fit(self, *args):
         """
@@ -378,28 +357,28 @@ class TorchModelBase:
             if self.early_stopping:
                 self._update_no_improvement_count_early_stopping(*dev)
                 if self.no_improvement_count > self.n_iter_no_change:
-                    utils.progress_bar(
-                        "Stopping after epoch {}. Validation score did "
-                        "not improve by tol={} for more than {} epochs. "
-                        "Final error is {}".format(iteration, self.tol,
-                            self.n_iter_no_change, epoch_error),
-                        verbose=self.display_progress)
+                    # utils.progress_bar(
+                    #     "Stopping after epoch {}. Validation score did "
+                    #     "not improve by tol={} for more than {} epochs. "
+                    #     "Final error is {}".format(iteration, self.tol,
+                    #         self.n_iter_no_change, epoch_error),
+                    #     verbose=self.display_progress)
                     break
 
             else:
                 self._update_no_improvement_count_errors(epoch_error)
                 if self.no_improvement_count > self.n_iter_no_change:
-                    utils.progress_bar(
-                        "Stopping after epoch {}. Training loss did "
-                        "not improve more than tol={}. Final error "
-                        "is {}.".format(iteration, self.tol, epoch_error),
-                        verbose=self.display_progress)
+                    # utils.progress_bar(
+                    #     "Stopping after epoch {}. Training loss did "
+                    #     "not improve more than tol={}. Final error "
+                    #     "is {}.".format(iteration, self.tol, epoch_error),
+                    #     verbose=self.display_progress)
                     break
 
-            utils.progress_bar(
-                "Finished epoch {} of {}; error is {}".format(
-                    iteration, self.max_iter, epoch_error),
-                verbose=self.display_progress)
+            # utils.progress_bar(
+            #     "Finished epoch {} of {}; error is {}".format(
+            #         iteration, self.max_iter, epoch_error),
+            #     verbose=self.display_progress)
 
         if self.early_stopping:
             self.model.load_state_dict(self.best_parameters)
