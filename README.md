@@ -1,5 +1,4 @@
 # Base Classes for Models
-
 Base Class and utilities for machine learning with Pytorch models.
 
 This repository is inspired by the design that Dr. Christopher Potts used in his 
