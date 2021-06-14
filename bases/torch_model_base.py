@@ -4,19 +4,7 @@ import pickle
 from sklearn.model_selection import train_test_split
 import torch
 
-from .mlogging import mlog
-
-def test(param, model):
-    """[summary]
-
-    Args:
-        param ([type]): [description]
-        model ([type]): [description]
-
-    Returns:
-        [type]: [description]
-    """
-    return param, model
+from .logging import mlog
 
 
 class TorchModelBase:

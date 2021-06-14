@@ -1,5 +1,7 @@
 # Base Classes for Models
 
+Base Class and utilities for machine learning with Pytorch models.
+
 This repository is inspired by the design that Dr. Christopher Potts used in his 
 extremely strong course on natural language understanding (I highly recommend it!),
 cs224u, offered as a <a href='https://online.stanford.edu/courses/xcs224u-natural-language-understanding'>professional program in xcs224u</a>. His 
