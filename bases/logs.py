@@ -4,11 +4,11 @@ from sacred.observers import SqlObserver
 from tensorboardX import SummaryWriter
 
 DB_FILE = 'sqlite:///experiment_logs/sacred.db'
-ex = Experiment()
-ex.observers.append(SqlObserver(DB_FILE))
+exp = Experiment()
+exp.observers.append(SqlObserver(DB_FILE))
 writer = SummaryWriter(logdir='experiment_logs/tensorboard_runs/')
 
-mlog = mlogger.Container(sacred_exp=ex)
+mlog = mlogger.Container(sacred_exp=exp)
 mlog.epoch = mlogger.metric.Simple()
 
 mlog.train = mlogger.Container()

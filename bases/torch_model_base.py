@@ -4,7 +4,7 @@ import pickle
 from sklearn.model_selection import train_test_split
 import torch
 
-from .logging import mlog
+from .logs import mlog
 
 
 class TorchModelBase:
