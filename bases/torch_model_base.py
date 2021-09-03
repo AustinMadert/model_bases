@@ -1,3 +1,4 @@
+from typing import TypeVar
 import copy
 import numpy as np
 import pickle
@@ -26,7 +27,8 @@ class TorchModelBase:
                  **optimizer_kwargs) -> None:
         """Base class for all the PyTorch-based models.
 
-        Args:
+        Parameters
+        ----------
             batch_size: Number of examples per batch. Batching is handled by a
                 `torch.utils.data.DataLoader`. Final batches can have fewer
                 examples, depending on the total number of examples in the
@@ -100,7 +102,8 @@ class TorchModelBase:
                 initialization to allow for tuning during hyperparameter search 
                 functions offerect in `sklearn.model_selection`.
 
-        Attributes:
+        Attributes
+        ----------
             params (list): All the keyword arguments are parameters and, with 
                 the exception of `display_progress`, their names are added to
                 this list to support working with them using tools from
@@ -154,12 +157,14 @@ class TorchModelBase:
 
         `torch.utils.data.TensorDataset(X)`
 
-        Args:
+        Parameters
+        ----------
             *args: any arguments to be used to create the dataset
 
             **kwargs: any desired keyword arguments
 
-        Returns:
+        Returns
+        -------
             `torch.utils.data.Dataset` or a custom subclass thereof
         """
         raise NotImplementedError
@@ -170,12 +175,14 @@ class TorchModelBase:
         method. The return value of this method becomes the the `self.model` 
         attribute.
 
-        Args:
+        Parameters
+        ----------
             *args: any arguments to be used to create the dataset
 
             **kwargs: any desired keyword arguments
 
-        Returns:
+        Returns
+        -------
             nn.Module
         """
         raise NotImplementedError
@@ -197,10 +204,11 @@ class TorchModelBase:
         raise NotImplementedError
 
 
-    def build_optimizer(self) -> torch.optimizer.Optimizer:
+    def build_optimizer(self) -> torch.optim:
         """Builds the optimizer. This method is called only when `fit` is called.
 
-        Returns:
+        Returns
+        -------
             torch.optimizer.Optimizer
         """
         return self.optimizer_class(
@@ -327,16 +335,16 @@ class TorchModelBase:
 
                 err = self.loss(batch_preds, y_batch)
 
-                if self.gradient_accumulation_steps > 1 and \
-                  self.loss.reduction == "mean":
+                if (self.gradient_accumulation_steps > 1 and
+                    self.loss.reduction == "mean"):
                     err /= self.gradient_accumulation_steps
 
                 err.backward()
 
                 mlog.train.error.update(err.item(), weighting=self.batch_size)
 
-                if batch_num % self.gradient_accumulation_steps == 0 or \
-                  batch_num == len(dataloader):
+                if (batch_num % self.gradient_accumulation_steps == 0 or 
+                    batch_num == len(dataloader)):
                     if self.max_grad_norm is not None:
                         torch.nn.utils.clip_grad_norm_(
                             self.model.parameters(), self.max_grad_norm)
@@ -388,7 +396,8 @@ class TorchModelBase:
 
         `X1_train, X1_test, X2_train, X2_test, ..., y_train, y_test`
 
-        Args:
+        Parameters
+        ----------
             *args: List of objects to split.
 
             validation_fraction: Percentage of the examples to use for the dev 
@@ -396,7 +405,8 @@ class TorchModelBase:
                 `self.validation_fraction`. We give it as an argument here to 
                 facilitate unit testing.
 
-        Returns:
+        Returns
+        -------
             tuple of `train` and `dev`
 
         """
@@ -412,7 +422,8 @@ class TorchModelBase:
         """Method used to create a dataloader from a pytorch dataset. Used in 
         `fit` and `_predict`.
 
-        Args:
+        Parameters
+        ----------
             dataset: The pytorch dataset object.
 
             shuffle: For training, set to `True`. For prediction, this is
@@ -420,7 +431,8 @@ class TorchModelBase:
                 shuffled out of order with respect to labels that might
                 be used for assessment.
 
-        Returns:
+        Returns
+        -------
             torch.utils.data.DataLoader
         """
         collate_fn = dataset.collate_fn if hasattr(dataset, "collate_fn") else None
