@@ -218,9 +218,24 @@ class TorchModelBase:
             **self.optimizer_kwargs)
 
 
-    def fit(self, *args) -> 'TorchModelBase':
+    def forward_propagate(self, X_batch: torch.Tensor, y_batch: torch.Tensor
+                          ) -> torch.Tensor:
+        """Runs a batch through a forward pass of the model. Then, calculates
+        the resulting loss. Subclasses that use specific regularization 
+        techniques will have to overwrite to incorporate those in the resulting
+        loss calculation.
+        
+        Returns
+        -------
+            torch.Tensor
         """
-        Generic optimization method.
+        batch_preds = self.model(*X_batch)
+        err = self.loss(batch_preds, y_batch)
+        return err
+
+
+    def fit(self, *args) -> 'TorchModelBase':
+        """Generic optimization method.
 
         Parameters
         ----------
@@ -331,9 +346,7 @@ class TorchModelBase:
                 X_batch = batch[: -1]
                 y_batch = batch[-1]
 
-                batch_preds = self.model(*X_batch)
-
-                err = self.loss(batch_preds, y_batch)
+                err = self.forward_propagate(X_batch, y_batch)
 
                 if (self.gradient_accumulation_steps > 1 and
                     self.loss.reduction == "mean"):
@@ -352,35 +365,17 @@ class TorchModelBase:
                     self.optimizer.zero_grad()
 
             # Stopping criteria:
-
             if self.early_stopping:
                 self._update_no_improvement_count_early_stopping(*dev)
                 if self.no_improvement_count > self.n_iter_no_change:
                     for metric in mlog.train.metrics():
                         metric.log()
-                    # utils.progress_bar(
-                    #     "Stopping after epoch {}. Validation score did "
-                    #     "not improve by tol={} for more than {} epochs. "
-                    #     "Final error is {}".format(iteration, self.tol,
-                    #         self.n_iter_no_change, epoch_error),
-                    #     verbose=self.display_progress)
                     break
 
             else:
                 self._update_no_improvement_count_errors(mlog.train.error)
                 if self.no_improvement_count > self.n_iter_no_change:
-                    
-                    # utils.progress_bar(
-                    #     "Stopping after epoch {}. Training loss did "
-                    #     "not improve more than tol={}. Final error "
-                    #     "is {}.".format(iteration, self.tol, epoch_error),
-                    #     verbose=self.display_progress)
                     break
-
-            # utils.progress_bar(
-            #     "Finished epoch {} of {}; error is {}".format(
-            #         iteration, self.max_iter, epoch_error),
-            #     verbose=self.display_progress)
 
         if self.early_stopping:
             self.model.load_state_dict(self.best_parameters)
